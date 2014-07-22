@@ -7,10 +7,23 @@ import org.activiti.bpmn.model.BaseElement;
 import org.activiti.bpmn.model.ExtensionAttribute;
 import org.activiti.bpmn.model.ExtensionElement;
 import org.activiti.bpmn.model.UserTask;
+import org.activiti.engine.delegate.Expression;
 import org.activiti.engine.impl.bpmn.parser.BpmnParse;
 import org.activiti.engine.impl.bpmn.parser.handler.AbstractBpmnParseHandler;
+import org.activiti.engine.impl.el.ExpressionManager;
 import org.activiti.engine.impl.pvm.process.ActivityImpl;
 
+/**
+ * Handles delegation related extension attributes.
+ *
+ * <p>
+ * Puts a {@link DelegationExtension} into the
+ * {@link ActivityImpl#setProperty(String, Object)}, with the name of
+ * {@link DelegationExtension#ACTIVITY_PROPERTY_NAME}
+ *
+ * @author Pali
+ *
+ */
 public class DelegationBpmnParseHandler extends
 AbstractBpmnParseHandler<UserTask> {
 
@@ -22,6 +35,8 @@ AbstractBpmnParseHandler<UserTask> {
 
 	public static final String BPMN_ATTRIBUTE_ON_RESOLVE = "onResolve";
 
+	public static final String BPMN_ATTRIBUTE_IS_DELEGATABLE = "isDelegatable";
+
 	public static final String BPMN_ATTRIBUTE_ON_DISABLED = "disabled";
 
 	@Override
@@ -30,41 +45,49 @@ AbstractBpmnParseHandler<UserTask> {
 	}
 
 	@Override
-	protected void executeParse(BpmnParse bpmnParse, UserTask serviceTask) {
-		ActivityImpl activity = findActivity(bpmnParse, serviceTask.getId());
-		Map<String, List<ExtensionElement>> extensionElements = serviceTask
-				.getExtensionElements();
+	protected void executeParse(BpmnParse bpmnParse, UserTask userTask) {
+		ExpressionManager expressionManager = bpmnParse.getExpressionManager();
 
-		List<ExtensionElement> list = extensionElements.get("delegation");
+		DelegationExtension processDelegation = parseDelegationExtension(
+				userTask, expressionManager);
 
-		DelegationExtension processDelegation = parseDelegationExtension(serviceTask);
-
+		ActivityImpl activity = findActivity(bpmnParse, userTask.getId());
 		activity.setProperty(DelegationExtension.ACTIVITY_PROPERTY_NAME,
 				processDelegation);
-
 	}
 
-	DelegationExtension parseDelegationExtension(BaseElement b) {
+	/**
+	 *
+	 * @param b
+	 * @param expressionManager
+	 * @return
+	 */
+	DelegationExtension parseDelegationExtension(BaseElement b,
+			ExpressionManager expressionManager) {
 		Map<String, List<ExtensionElement>> extensionElements = b
 				.getExtensionElements();
 
-		List<ExtensionElement> list = extensionElements.get("delegation");
+		List<ExtensionElement> list = extensionElements
+				.get(BPMN_ELEMENT_DELEGATION);
 
 		DelegationExtension processDelegation = DEFAULT_DELEGATION_EXTENSION;
-		for (ExtensionElement delegationElement : list) {
-			processDelegation = processDelegation(delegationElement);
+		Expression isDelegatableExpression = expressionManager
+				.createExpression("#{true}");
 
-			/*
-			 * I dunno, maybe later there will be more delegate elements?
-			 */
-			break;
+		processDelegation.setIsDelegatableExpression(isDelegatableExpression);
+		for (ExtensionElement delegationElement : list) {
+			processDelegation = processDelegation(delegationElement,
+					expressionManager);
+
+			return processDelegation;
 		}
 
 		return processDelegation;
 	}
 
 	private DelegationExtension processDelegation(
-			ExtensionElement extensionElement) {
+			ExtensionElement extensionElement,
+			ExpressionManager expressionManager) {
 
 		String strOnResolve = getAttributeValue(
 				extensionElement.getAttributes(), null,
@@ -72,6 +95,16 @@ AbstractBpmnParseHandler<UserTask> {
 		String strDisabled = getAttributeValue(
 				extensionElement.getAttributes(), null,
 				BPMN_ATTRIBUTE_ON_DISABLED);
+		String strIsDelegatable = getAttributeValue(
+				extensionElement.getAttributes(), null,
+				BPMN_ATTRIBUTE_IS_DELEGATABLE);
+
+		if (strIsDelegatable == null || strIsDelegatable.isEmpty()) {
+			strIsDelegatable = "#{true}";
+		}
+
+		Expression isDelegatableExpression = expressionManager
+				.createExpression(strIsDelegatable);
 
 		boolean enabled = true;
 		if (strDisabled != null) {
@@ -90,6 +123,7 @@ AbstractBpmnParseHandler<UserTask> {
 		DelegationExtension delegationExtension = new DelegationExtension();
 		delegationExtension.setActive(enabled);
 		delegationExtension.setOnResolve(onResolve);
+		delegationExtension.setIsDelegatableExpression(isDelegatableExpression);
 
 		return delegationExtension;
 	}

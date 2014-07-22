@@ -5,8 +5,10 @@ import org.activiti.engine.delegate.ExecutionListener;
 import org.activiti.engine.impl.pvm.PvmActivity;
 import org.activiti.engine.impl.pvm.delegate.ActivityExecution;
 
-public class ReadDelegationExtensionExecutionListener implements
+public class ReadDelegationExecutionListener implements
 ExecutionListener {
+
+	private static final long serialVersionUID = 1L;
 
 	@Override
 	public void notify(DelegateExecution execution) throws Exception {
@@ -18,10 +20,10 @@ ExecutionListener {
 
 			ActivityExecution activityExecution = (ActivityExecution) execution;
 			PvmActivity activity = activityExecution.getActivity();
-			DelegationExtension delegation = (DelegationExtension) activity
+			DelegationExtension delegationExtension = (DelegationExtension) activity
 					.getProperty(DelegationExtension.ACTIVITY_PROPERTY_NAME);
 
-			if (delegation != null) {
+			if (delegationExtension != null) {
 				// do things with the delegation...
 			}
 

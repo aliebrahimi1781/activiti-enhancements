@@ -42,35 +42,33 @@ public class ResolveOrCompleteTaskCmd extends CompleteTaskCmd {
 			ExecutionEntity execution = task.getExecution();
 			ActivityImpl activity = execution.getActivity();
 			DelegationExtension delegation = (DelegationExtension) activity
-			        .getProperty(DelegationExtension.ACTIVITY_PROPERTY_NAME);
+					.getProperty(DelegationExtension.ACTIVITY_PROPERTY_NAME);
 
 			DelegationOnResolve onResolve = delegation.getOnResolve();
 
-			if (!delegation.isActive()) {
+			if (!delegation.isActive() || DelegationOnResolve.RESOLVE.equals(onResolve)) {
 				/*
 				 * Delegation extension was set to disabled this means we go
 				 * with the default activity way
 				 */
 
-				task.complete();
+				task.resolve();
 			}
-			if (DelegationOnResolve.COMPLETE.equals(onResolve)) {
+			else if (DelegationOnResolve.COMPLETE.equals(onResolve)) {
 				/*
 				 * Resolve the task first then complete it
+				 * by the current assignee
 				 */
 
 				String currentAssignee = task.getAssignee();
 				task.resolve();
 				task.setAssignee(currentAssignee);
 				task.complete();
-			} else if (DelegationOnResolve.RESOLVE.equals(onResolve)) {
-				// resolve the task
-				task.resolve();
 			} else {
 
 				/*
-				 * Make sure if the DelegationOnResolve changes we will
-				 * eventually handle the new case
+				 * Make sure if the possible DelegationOnResolve values change
+				 * we will handle the new case
 				 */
 
 				throw new IllegalStateException(DelegationOnResolve.class
@@ -86,7 +84,6 @@ public class ResolveOrCompleteTaskCmd extends CompleteTaskCmd {
 			task.complete();
 			return null;
 		}
-
 	}
 
 }
